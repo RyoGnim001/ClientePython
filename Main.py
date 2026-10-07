@@ -1,5 +1,7 @@
 import base64
-import os
+import binascii
+import subprocess
+import tempfile
 from Client import Client
 
 
@@ -8,10 +10,10 @@ def exibir_menu():
     print("1 - Somar")
     print("2 - Subtrair")
     print("3 - Multiplicar")
-    print("4 - Enviar Imagem")
+    print("4 - Solicitar imagem ao servidor")
     print("0 - Encerrar Conexão")
     print("Formato: opcao;valor1;valor2  (ex: 1;2;3)")
-    print("Para imagem: 4;caminho/da/imagem.png")
+    print("Para imagem: digite 4")
 
 
 def preparar_mensagem(entrada):
@@ -19,26 +21,7 @@ def preparar_mensagem(entrada):
     opcao = partes[0].strip()
 
     if opcao == "4":
-        if len(partes) < 2 or not partes[1].strip():
-            print("Informe o caminho da imagem. Ex: 4;caminho/imagem.png")
-            return None
-
-        caminho = partes[1].strip()
-        if not os.path.isfile(caminho):
-            print(f"Arquivo não encontrado: {caminho}")
-            return None
-
-        try:
-            with open(caminho, "rb") as f:
-                # b64encode não insere quebras de linha no resultado,
-                # então é seguro para um protocolo baseado em linhas.
-                dados_b64 = base64.b64encode(f.read()).decode("utf-8")
-        except Exception as e:
-            print(f"Erro ao ler o arquivo: {e}")
-            return None
-
-        nome_arquivo = os.path.basename(caminho)
-        return f"4;{nome_arquivo};{dados_b64}"
+        return "4"
 
     # Opções 1, 2, 3 (e qualquer outra que o servidor saiba tratar)
     return entrada
@@ -74,22 +57,43 @@ def main():
             continue
 
         mensagem = preparar_mensagem(entrada)
-        if mensagem is None:
-            # Erro de validação (arquivo não encontrado, formato
-            # inválido etc.) — volta a pedir uma entrada, sem gastar
-            # uma ida e volta com o servidor.
-            continue
-
         if client.enviar_mensagem(mensagem):
             resposta = client.receber_resposta()
             if resposta is not None:
-                print(f"[Servidor] {resposta}")
+                opcao = entrada.split(";", 1)[0].strip()
+                if opcao == "4":
+                    abrir_imagem_recebida(resposta)
+                else:
+                    print(f"[Servidor] {resposta}")
             else:
                 break
         else:
             break
 
     client.fechar()
+
+
+def abrir_imagem_recebida(resposta):
+    """Decodifica a resposta Base64 e abre a imagem temporária no Firefox."""
+    if not resposta.startswith("OK;"):
+        print(f"[Servidor] {resposta}")
+        return
+
+    dados_base64 = resposta[len("OK;"):]
+    try:
+        imagem = base64.b64decode(dados_base64, validate=True)
+        with tempfile.NamedTemporaryFile(
+            prefix="imagem-servidor-", suffix=".jpg", delete=False
+        ) as arquivo:
+            arquivo.write(imagem)
+            caminho = arquivo.name
+
+        subprocess.Popen(["firefox", caminho])
+        print("Imagem aberta no Firefox.")
+    except (ValueError, binascii.Error):
+        print("O servidor enviou dados Base64 inválidos.")
+    except OSError as e:
+        print(f"Não foi possível salvar a imagem ou iniciar o Firefox: {e}")
 
 
 if __name__ == "__main__":

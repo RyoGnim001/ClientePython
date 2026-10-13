@@ -15,7 +15,7 @@ class Client:
             self.socket.connect((self.host, self.porta))
             print("O cliente se conectou ao servidor!")
         except ConnectionRefusedError:
-            print("Erro ao conectar: Conexão recusada (servidor offline).")
+            print("Erro ao conectar: Conexão recusada.")
         except Exception as e:
             print(f"Erro inesperado ao conectar: {e}")
 

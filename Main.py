@@ -131,8 +131,12 @@ def abrir_imagem_recebida(resposta):
             arquivo.write(imagem)
             caminho = arquivo.name
 
-        subprocess.Popen(["firefox", caminho])
-        print("Imagem aberta no Firefox.")
+        processo_chrome = subprocess.Popen(
+            ["google-chrome", caminho],
+            stdout=subprocess.DEVNULL,  # Opcional: silencia a saída padrão
+            stderr=subprocess.DEVNULL  # Opcional: silencia as mensagens de erro
+        )
+        print("Imagem aberta no Chrome.")
     except (ValueError, binascii.Error):
         print("O servidor enviou dados Base64 inválidos.")
     except OSError as e:
